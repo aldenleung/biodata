@@ -5,18 +5,33 @@ from io import TextIOBase
 
 class BaseReader(object):
 	'''
-	The base class for all sequential Readers handling different text file types. By default it (1) reads line-by-line, (2) skips blank lines, (3) skips lines starting with #, (4) rstrips the line.
+	The base class for all sequential Readers handling different text file types. By default it (1) reads line-by-line, (2) skips blank lines, (3) rstrips the line.
+	
+	Any subclass should override the _read function. Other functions such as _proceed_next_line and _metainfo_reader should be overrided if applicable. 
 	
 	The file name '-' is treated as stdin. If a file ends in gz / bz2, it will use gzip / bz2 to open the file with utf-8 encoding
 
 	Example usage:
 
 	.. code-block:: python
-	
+		
+		# The following are equivalent in reading a files into lines.
+		from biodata.baseio import BaseReader
 		with BaseReader(filename) as br:
 			lines = br.read_all()
 		
+		from biodata.baseio import BaseReader
+		lines = []
+		with BaseReader(filename) as br:
+			for b in br:
+				lines.append(b)
+		
+		from biodata.baseio import BaseReader
+		lines = BaseReader.read_all(list, filename)
+
+		# TextIOBase can be used as input
 		import io
+		from biodata.baseio import BaseReader
 		with BaseReader(io.StringIO("Line1\nLine2\n")) as br:
 			lines = br.read_all()
 		
@@ -30,7 +45,7 @@ class BaseReader(object):
 		class ExampleNodeReader(BaseReader):
 			def __init__(self, filename):
 				super(ExampleNodeReader, self).__init__(filename)
-			def read(self):
+			def _read(self):
 				if self.line is None:
 					return None
 				words_array = self.line.split('\\t')
@@ -49,7 +64,7 @@ class BaseReader(object):
 	
 	'''
 	
-	__slots__ = "f", "_line"
+	__slots__ = "f", "_line", "_is_stored", "_stored_value"
 	def __init__(self, arg):
 		'''
 		Either an arg or 
@@ -58,6 +73,7 @@ class BaseReader(object):
 			self.f = arg 
 		else:
 			self.f = create_text_stream(arg, "r")
+		self._is_stored = False
 		self._metainfo_reader()
 			
 		
@@ -84,15 +100,27 @@ class BaseReader(object):
 		'''
 		self._proceed_next_line()
 	
-
-	def read(self):
-		'''
-		Returns the next object
-		'''
+	
+	def _read(self):
 		line = self._line
 		self._proceed_next_line()
 		return line
 	
+	def read(self):
+		'''
+		Returns the next object
+		'''
+		if self._is_stored:
+			self._is_stored = False
+			return self._stored_value
+		else:
+			return self._read()
+	
+	def peek(self):
+		if not self._is_stored:
+			self._is_stored = True 
+			self._stored_value = self._read()
+		return self._stored_value 
 	
 	def __iter__(self):
 		'''
@@ -330,15 +358,28 @@ def create_text_stream(filename, mode):
 	return f
 
 
-# class BaseIReader(object):
-# 	'''
-# 	The base class for all readers of indexed-files. For a typical file types that allows
-# 	Since there is no guaranteed on what are indexed. 
-# 	Some files may have an additional associated index file.  
-# 	'''
-# 	def __init__(self, arg):
-# 		'''
-# 		'''
-# 		pass
+class BaseIReader(object):
+	'''
+	The base class for all readers of indexed-files. 
+	For a typical file types that allows quick query onto certain entries.
+	There is no guaranteed on what are indexed. 
+	Also, there may not be any unique key per entry.
+	Some files may have an additional associated index file.
+	
+	fasta, region-related, etc.  
+	'''
+	def __init__(self, arg):
+		'''
+		'''
+		pass
 
-
+	def __getitem__(self, key):
+		# Exact or inexact
+		pass
+	
+	def __enter__(self): 
+		return self
+	
+	def __exit__(self, type, value, traceback): 
+		self.close()
+	

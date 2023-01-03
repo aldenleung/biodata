@@ -3,11 +3,11 @@ from setuptools import setup, find_packages
 with open("README.md", "r") as readme_file:
 	readme = readme_file.read()
 
-requirements = []
+requirements = ["genomictools>=0.0.5"]
 
 setup(
 	name="biodata",
-	version="0.0.1",
+	version="0.0.2",
 	author="Alden Leung",
 	author_email="alden.leung@gmail.com",
 	description="A python package for common biological data I/O",
@@ -20,6 +20,8 @@ setup(
 		"Programming Language :: Python :: 3.7",
 		"Programming Language :: Python :: 3.8",
 		"Programming Language :: Python :: 3.9",
+		"Programming Language :: Python :: 3.10",
+		"Programming Language :: Python :: 3.11",
 		"License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 	],
 )
