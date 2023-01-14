@@ -2,6 +2,14 @@
 
 The biodata package provides a standard API to access all different kinds of biological data using similar syntax. For each data type, data is processed by the corresponding reader (XX-Reader) and writer (XX-Writer) as a stream of entries. For example, `FASTAReader` is used to process FASTA file. A call to the method `read()` from `FASTAReader` yields a `FASTA` object. For indexed file, random access is supported through the XX-IReader. For example, an indexed FASTA file can be access by  `FASTAIReader`. 
 
+## Installation 
+
+```
+pip install biodata
+```
+
+
+
 ## Basic usage
 
 We will demonstrate the use of biodata package using FASTA file. 
@@ -42,6 +50,11 @@ fasta_entries = FASTAReader.read_all(list, filename) # list of FASTA
 seq_dict = FASTAReader.read_all(lambda fr: {f.name:f.seq for f in fr}, filename) 
 # A dictionary with fasta name as key and fasta sequence as value
 # {"seq1": "ACGT", "seq2": "CCCGGGAAA"}
+
+# For genomic range data, one could also use GenomicCollection to store them:
+from biodata.bed import BEDReader
+from genomictools import GenomicCollection
+beds = BEDReader.read_all(GenomicCollection, filename)
 ```
 
 ### Peek an entry
@@ -104,9 +117,10 @@ FASTAWriter.write_all(fasta_entries, output_file)
 
 # List of supported format
 
-1. Delimited (`biodata.delimited`)
+1. Delimited - tsv, csv (`biodata.delimited`)
 2. FASTA, FASTQ (`biodata.fasta`)
 3. BED3, BED, BEDX, BEDGraph, BEDPE (`biodata.bed`)
+4. bwa FastMap
 
 Future supported formats. 
 
@@ -144,5 +158,4 @@ with ExampleNodeReader(filename) as er:
 	for node in er:
 		print(node.value1, node.value2)
 ```
-
 
