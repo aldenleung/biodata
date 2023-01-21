@@ -39,6 +39,10 @@ with FASTAReader(filename) as fr:
 		print(f.name, f.seq)
 # seq1 ACGT
 # seq2 CCCGGGAAA
+
+with BEDReader(bedfile) as br:
+	for b in br:
+		print(b.name, str(b.genomic_pos))
 ```
 
 ### Read all entries at once
@@ -115,12 +119,13 @@ FASTAWriter.write_all(fasta_entries, output_file)
 
 
 
-# List of supported format
+## List of supported format
 
 1. Delimited - tsv, csv (`biodata.delimited`)
 2. FASTA, FASTQ (`biodata.fasta`)
 3. BED3, BED, BEDX, BEDGraph, BEDPE (`biodata.bed`)
-4. bwa FastMap
+4. bwa FastMap (`biodata.bwa.fastmap`)
+5. MEME Motif Format (`biodata.meme`)
 
 Future supported formats. 
 
@@ -133,7 +138,7 @@ Future supported formats.
 
 ## Extension of BaseReader
 
-Users can extend the BaseReader and BaseWriter class easily.
+Users can extend the `BaseReader` and `BaseWriter` class easily.
 
 ```python
 class ExampleNode(object):
