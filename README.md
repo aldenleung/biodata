@@ -8,6 +8,28 @@ The biodata package provides a standard API to access all different kinds of bio
 pip install biodata
 ```
 
+## Quick Start
+
+For more advanced use, please see the Basic Usage section. 
+
+```python
+# Reading file contents
+from biodata.fasta import FASTAReader
+seq_dict = FASTAReader.read_all(lambda fr: {f.name:f.seq for f in fr}, "input.fa") 
+
+from biodata.bed import BEDReader
+from genomictools import GenomicCollection
+beds = BEDReader.read_all(GenomicCollection, "input.bed")
+
+from biodata.gff import GFF3Reader
+from genomictools import GenomicCollection
+gff3s = GFF3Reader.read_all(GenomicCollection, "input.gff3")
+
+from biodata.gff import GTFReader
+from genomictools import GenomicCollection
+gtfs = GTFReader.read_all(GenomicCollection, "input.gtf")
+```
+
 
 
 ## Basic usage
@@ -124,13 +146,13 @@ FASTAWriter.write_all(fasta_entries, output_file)
 1. Delimited - tsv, csv (`biodata.delimited`)
 2. FASTA, FASTQ (`biodata.fasta`)
 3. BED3, BED, BEDX, BEDGraph, BEDPE (`biodata.bed`)
-4. bwa FastMap (`biodata.bwa.fastmap`)
-5. MEME Motif Format (`biodata.meme`)
+4. GFF3, GTF (GFF2) (`biodata.gff`)
+5. bwa FastMap (`biodata.bwa.fastmap`)
+6. MEME Motif Format (`biodata.meme`)
 
 Future supported formats. 
 
-1. GFF (`biodata.gff`)
-2. VCF (`biodata.vcf`)
+1. VCF (`biodata.vcf`)
 3. BigBed (`biodata.bed`)
 4. BigWig (`biodata.bigwig`)
 
