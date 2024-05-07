@@ -2,7 +2,11 @@ import sys
 import bz2
 import gzip
 from io import TextIOBase
-
+try:
+	import Bio.bgzf
+	_SUPPORT_BGZ = True
+except:
+	_SUPPORT_BGZ = False
 class BaseReader(object):
 	'''
 	The base class for all sequential Readers handling different text file types. By default it (1) reads line-by-line, (2) skips blank lines, (3) rstrips the line.
@@ -336,8 +340,10 @@ def create_text_stream(filename, mode):
 		result = urllib.request.urlopen(request)
 		remote_file_name = result.info().get_filename()
 		stream = io.BytesIO(result.read())
-		if remote_file_name.endswith(".gz"):
-			f = gzip.open(stream, mode = mode + 't', encoding='utf-8')			
+		if remote_file_name.endswith(".bgz"):
+			f = gzip.open(stream, mode = mode + 't', encoding='utf-8')
+		elif remote_file_name.endswith(".gz"):
+			f = gzip.open(stream, mode = mode + 't', encoding='utf-8')		
 		elif remote_file_name.endswith(".bz2"):
 			f = bz2.open(stream, mode = mode + 't', encoding='utf-8')
 		else:
@@ -349,7 +355,15 @@ def create_text_stream(filename, mode):
 			else:
 				f = sys.stdout
 		else:
-			if filename.endswith(".gz"):
+			if filename.endswith(".bgz"):
+				if mode == "r":
+					f = gzip.open(filename, mode = mode + 't', encoding='utf-8')
+				else:
+					if not _SUPPORT_BGZ:
+						raise Exception("bgzip is not supported without Bio.bgzf")
+					f = Bio.bgzf.open(filename, mode=mode+'t')
+						
+			elif filename.endswith(".gz"):
 				f = gzip.open(filename, mode = mode + 't', encoding='utf-8')			
 			elif filename.endswith(".bz2"):
 				f = bz2.open(filename, mode = mode + 't', encoding='utf-8')
@@ -382,4 +396,3 @@ class BaseIReader(object):
 	
 	def __exit__(self, type, value, traceback): 
 		self.close()
-	
