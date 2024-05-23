@@ -5,7 +5,7 @@ Created on Dec 29, 2020
 '''
 
 
-# BED3, BED, BEDX, BEDGraph, BEDPE
+# BED3, BED, BEDX, BEDGraph, BEDPE and all bed-derived file formats
 
 from .baseio import BaseReader, BaseWriter
 from .baseio import BaseIReader
@@ -66,7 +66,11 @@ class BED3Writer(BaseWriter):
 		'''
 		Output the BED3
 		'''
-		super(BED3Writer, self).write("{}\t{}\t{}\n".format(bed3.chrom, bed3.chromStart, bed3.chromEnd))
+		if isinstance(bed3, BED3):
+			super(BED3Writer, self).write("{}\t{}\t{}\n".format(bed3.chrom, bed3.chromStart, bed3.chromEnd))
+		else: # assume GenomicPos
+			r = bed3.genomic_pos
+			super(BED3Writer, self).write("{}\t{}\t{}\n".format(r.name, r.zstart, r.ostop))
 
 
 		
@@ -145,6 +149,7 @@ class BEDReader(BED3Reader):
 				raise Exception("Last block must end at chromEnd")		 
 		
 		return BED(chrom, chromStart, chromEnd, name, score, strand, thickStart, thickEnd, itemRgb, blockCount, blockSizes, blockStarts)
+
 	
 	
 class BEDWriter(BaseWriter):
@@ -223,6 +228,10 @@ class BEDGraphReader(BaseReader):
 	def __init__(self, arg, dataValueType=float):
 		super(BEDGraphReader, self).__init__(arg)
 		self.dataValueType = dataValueType
+	def _metainfo_reader(self):
+		self._proceed_next_line()
+		while self._line is not None and (self._line.startswith("track") or self._line.startswith("browser")):
+			self._proceed_next_line()
 	
 	def _read(self):
 		line = self._line
@@ -248,8 +257,6 @@ class BEDGraphWriter(BaseWriter):
 		Output the BEDGraph
 		'''
 		super(BEDGraphWriter, self).write("{}\t{}\t{}\t{}\n".format(bedgraph.chrom, bedgraph.chromStart, bedgraph.chromEnd, self.dataValueFunc(bedgraph.dataValue)))
-		
-		
 	
 
 
@@ -283,6 +290,16 @@ class BEDPE():
 class BEDPEReader(BaseReader):
 	def __init__(self, arg):
 		super(BEDPEReader, self).__init__(arg)
+	def _proceed_next_line(self):
+		while True:
+			line = self.f.readline()
+			if line == '':
+				self._line = None
+				break
+			line = line.rstrip("\r\n") # Auto-stripping
+			if line != '' and not line.startswith("#"): # Auto comment removal. Blank lines are skipped by default
+				self._line = line
+				break
 			
 	def _read(self):
 		if self._line is None:
@@ -312,7 +329,6 @@ class BEDPEReader(BaseReader):
 	
 	
 class BEDPEWriter(BaseWriter):
-	# Untested
 	def __init__(self, arg):
 		super(BEDPEWriter, self).__init__(arg)
 			
@@ -335,4 +351,87 @@ class BEDPEWriter(BaseWriter):
 				"" if bedpe.strand2 is None else bedpe.strand2
 				]))) + "\n")
 
+
+# import tabix
+# 
+# class BEDGraphIReader():
+# 	def __init__(self, file, index_file, dataValueType=float):
+# 		self.dataValueType = dataValueType
+# 	def value(self, r, method="sum"):
+# 		arr = tabix.query(r.genomic_pos.name, r.genomic_pos.zstart, r.genomic_pos.ostop)
+# 		
+# 		chrom = words_array[0]
+# 		chromStart = int(words_array[1]) 
+# 		chromEnd = int(words_array[2])
+# 		dataValue = self.dataValueType(words_array[3])
+# 		return BEDGraph(chrom, chromStart, chromEnd, dataValue)
+
+
+class PINTSBidirectional(BED3):
+	__slots__ = "confidence", "major_tss_pls", "major_tss_mns"
+	def __init__(self, chrom, chromStart, chromEnd, confidence, major_tss_pls, major_tss_mns):
+		super(PINTSBidirectional, self).__init__(chrom, chromStart, chromEnd)
+		self.confidence = confidence
+		self.major_tss_pls = major_tss_pls
+		self.major_tss_mns = major_tss_mns
+class PINTSBidirectionalReader(BaseReader):
+	def __init__(self, arg):
+		super(PINTSBidirectionalReader, self).__init__(arg)
+	
+	def _read(self):
+		line = self._line
+		if line is None:
+			return None
+		self._proceed_next_line() 
+		words_array = line.split('\t')
+		chrom = words_array[0]
+		chromStart = int(words_array[1]) 
+		chromEnd = int(words_array[2])
+		confidence = set(words_array[3].split(","))
+		major_tss_pls = list(map(int, words_array[4].split(",")))
+		major_tss_mns = list(map(int, words_array[5].split(",")))
+		return PINTSBidirectional(chrom, chromStart, chromEnd, confidence, major_tss_pls, major_tss_mns)
+
+class BigBedIReader(BaseIReader):
+	__slots__ = "bigbed", "fieldnames", "fieldfuncs", "BEDX"
+	def __init__(self, arg, fieldnames=[], fieldfuncs=None, x=3, classname="BEDX"):
+		'''
+		fieldnames: List of names of the additional fields. 
+		fieldfuncs: It can either be a list or a dict. 
+		x: bedx+ 
+		'''
+		import pyBigWig
+		super(BigBedIReader, self).__init__(arg)
+		BigBedIReaderSelf = self
+		def _init(self, chrom, chromStart, chromEnd, *args):
+			super(BigBedIReaderSelf.BEDX, self).__init__(chrom, chromStart, chromEnd)
+			if len(args) != len(self.__slots__):
+				raise Exception("Inconsistent field names and entries")
+			for slot, arg in zip(self.__slots__, args):
+				setattr(self, slot, arg)
+		if x < 3 or x > 12:
+			raise Exception("Incorrect X")
+		self.fieldnames = _bed_additional_fields[:x - 3] + fieldnames
+
+		addition_field_funcs = {_bed_additional_fields[i]:_bed_additional_field_funcs[i] for i in range(x - 3)}
+		if fieldfuncs is None:
+			self.fieldfuncs = addition_field_funcs
+		elif type(fieldfuncs) is dict:
+			self.fieldfuncs = fieldfuncs
+		else:
+			self.fieldfuncs = _bed_additional_field_funcs[:x - 3] + fieldfuncs
+		self.BEDX = type(classname, (BED3,), {"__slots__":self.fieldnames, "__init__":_init})
+		self.bigbed = pyBigWig.open(arg)
+		
+	def __getitem__(self, key):
+		r = GenomicPos(key)
+		if r.name not in self.bigbed.chroms():
+			return []
+		entries = self.bigbed.entries(r.name, r.zstart, r.ostop)
+		if entries is None:
+			return []
+		return [self.BEDX(r.name, zstart, ostop, *s.split()) for zstart, ostop, s in entries]
+	
+	def close(self):
+		self.bigbed.close()
 
