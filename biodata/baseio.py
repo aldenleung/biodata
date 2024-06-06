@@ -292,8 +292,10 @@ def get_text_file_extension(filename, neglect_zip=True):
 		get_text_file_extension("a.txt.gz", neglect_zip = False) # 'gz'
 		
 		get_text_file_extension("example") # ''
+		
+		get_text_file_extension("a.csv.txt") # 'txt'
 	''' 
-	supported_zip_extensions = [".gz", ".bz2"]
+	supported_zip_extensions = [".gz", ".bz2", ".bgz"]
 	if (neglect_zip):
 		for supported_zip_extension in supported_zip_extensions:
 			if filename.endswith(supported_zip_extension):
@@ -305,6 +307,19 @@ def get_text_file_extension(filename, neglect_zip=True):
 		return ""
 	else:
 		return filename[index+1:] 
+	
+def get_text_file_rootname(filename, neglect_zip=True):
+	supported_zip_extensions = [".gz", ".bz2", ".bgz"]
+	if (neglect_zip):
+		for supported_zip_extension in supported_zip_extensions:
+			if filename.endswith(supported_zip_extension):
+				filename = filename[0:filename.rfind(supported_zip_extension)]
+				break
+	index = filename.rfind(".")
+	if index == -1: # No file extension found
+		return filename
+	else:
+		return filename[:index] 
 	
 
 	
@@ -388,7 +403,6 @@ class BaseIReader(object):
 		pass
 
 	def __getitem__(self, key):
-		# Exact or inexact
 		pass
 	
 	def __enter__(self): 
