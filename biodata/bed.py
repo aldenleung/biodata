@@ -1,17 +1,15 @@
-'''
-Created on Dec 29, 2020
-
-@author: Alden
-'''
+try:
+	import pyBigWig
+	_SUPPORT_BIGWIG = True
+except:
+	_SUPPORT_BIGWIG = False
 
 
 # BED3, BED, BEDX, BEDGraph, BEDPE and all bed-derived file formats
 
-from .baseio import BaseReader, BaseWriter
-from .baseio import BaseIReader
+from .baseio import BaseReader, BaseWriter, BaseIReader
 from genomictools import GenomicAnnotation, StrandedGenomicAnnotation, GenomicPos, StrandedGenomicPos
-
-
+from .tabix import TabixIReader
 class BED3(GenomicAnnotation):
 	'''
 	The basic BED3 format, with only chrom, chromStart and chromEnd 
@@ -96,7 +94,7 @@ class BED(BED3, StrandedGenomicAnnotation):
 	def stranded_genomic_pos(self):
 		return StrandedGenomicPos(self.chrom, self.chromStart + 1, self.chromEnd, "." if self.strand is None else self.strand)
 class BEDReader(BED3Reader):
-	
+
 	def _is_empty_field(self, s):
 		return s is None or s == "" or s == "."
 	
@@ -258,8 +256,70 @@ class BEDGraphWriter(BaseWriter):
 		'''
 		super(BEDGraphWriter, self).write("{}\t{}\t{}\t{}\n".format(bedgraph.chrom, bedgraph.chromStart, bedgraph.chromEnd, self.dataValueFunc(bedgraph.dataValue)))
 	
+	
+class BEDGraphIReader(TabixIReader):
+	def __init__(self, arg, tbi=None, dataValueType=float):
+		super(BEDGraphIReader, self).__init__(arg, tbi)
+		if isinstance(dataValueType, str): # Not very safe way to convert str into func
+			dataValueType = eval(dataValueType, {})
+		self.dataValueType = dataValueType
+	def _parse_raw_entry(self, entry):
+		return BEDGraph(entry[0], int(entry[1]), int(entry[2]), self.dataValueType(entry[3]))	
+	def values_dict(self, r):
+		zstart = r.zstart
+		ostop = r.ostop
+		return {p+1 : v for name, i_zstart, i_ostop, v in self.entries_iterator(r) for p in range(max(i_zstart, zstart), min(i_ostop, ostop))}		
 
-
+class BEDIReader(TabixIReader):
+	def _is_empty_field(self, s):
+		return s is None or s == "" or s == "."
+	
+	def _parse_raw_entry(self, entry):
+		words_array = entry
+		chrom = words_array[0]
+		chromStart = int(words_array[1]) 
+		chromEnd = int(words_array[2])
+		words_array.extend([None] * (12 - len(words_array)))
+		
+		name = words_array[3]
+		score = None
+		strand = None
+		thickStart = None
+		thickEnd = None
+		itemRgb = None
+		blockCount = None
+		blockSizes = None
+		blockStarts = None
+		
+		if not self._is_empty_field(words_array[4]):
+			score = float(words_array[4])
+		if words_array[5] != "":
+			strand = words_array[5]
+		if not self._is_empty_field(words_array[6]):
+			thickStart = words_array[6]
+		if not self._is_empty_field(words_array[7]):
+			thickEnd = words_array[7]
+		if not self._is_empty_field(words_array[8]):
+			itemRgb = words_array[8]
+		if not self._is_empty_field(words_array[9]):
+			blockCount = int(words_array[9])
+		if not self._is_empty_field(words_array[10]):
+			blockSizes = list(map(int, filter(lambda a:a, words_array[10].split(","))))
+		if not self._is_empty_field(words_array[11]):
+			blockStarts = list(map(int, filter(lambda a:a, words_array[11].split(","))))
+		
+		if blockSizes is not None:
+			if blockCount != len(blockSizes):
+				raise Exception("Inconsistent blockCount and blockSizes")
+			if blockCount != len(blockStarts):
+				raise Exception("Inconsistent blockCount and blockStarts")
+			if blockStarts[0] != 0:
+				raise Exception("First block must start at 0")
+			if chromStart + blockStarts[-1] + blockSizes[-1] != chromEnd:
+				raise Exception("Last block must end at chromEnd")		 
+		
+		return BED(chrom, chromStart, chromEnd, name, score, strand, thickStart, thickEnd, itemRgb, blockCount, blockSizes, blockStarts)
+		
 class BEDPE():
 	'''
 	'''
@@ -352,21 +412,6 @@ class BEDPEWriter(BaseWriter):
 				]))) + "\n")
 
 
-# import tabix
-# 
-# class BEDGraphIReader():
-# 	def __init__(self, file, index_file, dataValueType=float):
-# 		self.dataValueType = dataValueType
-# 	def value(self, r, method="sum"):
-# 		arr = tabix.query(r.genomic_pos.name, r.genomic_pos.zstart, r.genomic_pos.ostop)
-# 		
-# 		chrom = words_array[0]
-# 		chromStart = int(words_array[1]) 
-# 		chromEnd = int(words_array[2])
-# 		dataValue = self.dataValueType(words_array[3])
-# 		return BEDGraph(chrom, chromStart, chromEnd, dataValue)
-
-
 class PINTSBidirectional(BED3):
 	__slots__ = "confidence", "major_tss_pls", "major_tss_mns"
 	def __init__(self, chrom, chromStart, chromEnd, confidence, major_tss_pls, major_tss_mns):
@@ -400,8 +445,9 @@ class BigBedIReader(BaseIReader):
 		fieldfuncs: It can either be a list or a dict. 
 		x: bedx+ 
 		'''
-		import pyBigWig
 		super(BigBedIReader, self).__init__(arg)
+		if not _SUPPORT_BIGWIG:
+			raise Exception("bigbed is not supported without pyBigWig.")
 		BigBedIReaderSelf = self
 		def _init(self, chrom, chromStart, chromEnd, *args):
 			super(BigBedIReaderSelf.BEDX, self).__init__(chrom, chromStart, chromEnd)
@@ -422,15 +468,20 @@ class BigBedIReader(BaseIReader):
 			self.fieldfuncs = _bed_additional_field_funcs[:x - 3] + fieldfuncs
 		self.BEDX = type(classname, (BED3,), {"__slots__":self.fieldnames, "__init__":_init})
 		self.bigbed = pyBigWig.open(arg)
+
+	def entries_iterator(self, r):
+		r = GenomicPos(r)
+		if r.name in self.bigbed.chroms():
+			entries = self.bigbed.entries(r.name, r.zstart, r.ostop)
+			if entries is not None:
+				for zstart, ostop, s in entries:
+					yield self.BEDX(r.name, zstart, ostop, *s.split())
+					
+	def entries(self, r):
+		return list(self.entries_iterator(r))
 		
 	def __getitem__(self, key):
-		r = GenomicPos(key)
-		if r.name not in self.bigbed.chroms():
-			return []
-		entries = self.bigbed.entries(r.name, r.zstart, r.ostop)
-		if entries is None:
-			return []
-		return [self.BEDX(r.name, zstart, ostop, *s.split()) for zstart, ostop, s in entries]
+		return self.entries[key]
 	
 	def close(self):
 		self.bigbed.close()

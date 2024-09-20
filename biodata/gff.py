@@ -5,7 +5,7 @@ import logging
 
 from genomictools import StrandedGenomicAnnotation, StrandedGenomicPos
 from .baseio import BaseReader, BaseWriter
-
+from .tabix import TabixIReader
 def _quote_split(s, delimiter):
 	return next(csv.reader([s],delimiter=delimiter))
 		
@@ -41,6 +41,17 @@ class GFF3(StrandedGenomicAnnotation):
 		return StrandedGenomicPos(self.seqname, self.start, self.end, self.strand)
 	
 	
+def _parse_words_array_GFF3(words_array):
+	seqid = words_array[0]
+	source = words_array[1]
+	feature = words_array[2]
+	start = int(words_array[3])
+	end = int(words_array[4])
+	score = float(words_array[5]) if words_array[5] != "." else None
+	strand = words_array[6]
+	phase = words_array[7]
+	attributes = OrderedDict([_quote_split(item.strip(), "=") for item in _quote_split(words_array[8], ";")])
+	return GFF3(seqid, source, feature, start, end, score, strand, phase, attributes)
 class GFF3Reader(BaseReader):
 	def __init__(self, arg):
 		if isinstance(arg, str):
@@ -75,24 +86,18 @@ class GFF3Reader(BaseReader):
 		if line is None:
 			return None
 		self._proceed_next_line()
-		
 		words_array = line.split('\t')
-		seqid = words_array[0]
-		source = words_array[1]
-		feature = words_array[2]
-		start = int(words_array[3])
-		end = int(words_array[4])
-		score = float(words_array[5]) if words_array[5] != "." else None
-		strand = words_array[6]
-		phase = words_array[7]
-		attributes = OrderedDict([_quote_split(item.strip(), "=") for item in _quote_split(words_array[8], ";")])
-		return GFF3(seqid, source, feature, start, end, score, strand, phase, attributes)
+		return _parse_words_array_GFF3(words_array)
+	
 	@staticmethod
 	def read_all_by_features(features, read_all_func, *args, **kwargs):
 		'''
 		A short cut method to read GFFs with selected features
 		'''
 		return GFF3Reader.read_all(lambda gff3_generator: read_all_func(filter(lambda gff3: gff3.feature in features, gff3_generator)), *args, **kwargs)
+class GFF3IReader(TabixIReader):
+	def _parse_raw_entry(self, entry):
+		return _parse_words_array_GFF3(entry)	
 
 class GFF3Writer(BaseWriter):
 	def __init__(self, arg):
@@ -145,6 +150,19 @@ class GTF(StrandedGenomicAnnotation):
 	@property
 	def stranded_genomic_pos(self):
 		return StrandedGenomicPos(self.seqname, self.start, self.end, self.strand)
+	
+def _parse_words_array_GTF(words_array):
+	seqname = words_array[0]
+	source = words_array[1]
+	feature = words_array[2]
+	start = int(words_array[3])
+	end = int(words_array[4])
+	score = float(words_array[5]) if words_array[5] != "." and words_array[5] != "None" else None
+	strand = words_array[6]
+	frame = words_array[7]
+	attribute = OrderedDict([_quote_split(item.strip(), " ") for item in _quote_split(words_array[8], ";") if len(item.strip()) != 0]) # Defective
+	return GTF(seqname, source, feature, start, end, score, strand, frame, attribute)
+
 class GTFReader(BaseReader):
 	def _proceed_next_line(self):
 		'''
@@ -166,17 +184,10 @@ class GTFReader(BaseReader):
 			return None
 		self._proceed_next_line()
 		words_array = line.split('\t')
-		seqname = words_array[0]
-		source = words_array[1]
-		feature = words_array[2]
-		start = int(words_array[3])
-		end = int(words_array[4])
-		score = float(words_array[5]) if words_array[5] != "." and words_array[5] != "None" else None
-		strand = words_array[6]
-		frame = words_array[7]
-		attribute = OrderedDict([_quote_split(item.strip(), " ") for item in _quote_split(words_array[8], ";") if len(item.strip()) != 0]) # Defective
-		return GTF(seqname, source, feature, start, end, score, strand, frame, attribute)
-	
+		return _parse_words_array_GTF(words_array)
+class GTFIReader(TabixIReader):
+	def _parse_raw_entry(self, entry):
+		return _parse_words_array_GTF(entry)	
 
 class GTFWriter(BaseWriter):
 	def __init__(self, arg):

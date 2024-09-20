@@ -1,7 +1,7 @@
 import sys
 import bz2
 import gzip
-from io import TextIOBase
+from io import TextIOBase, StringIO
 try:
 	import Bio.bgzf
 	_SUPPORT_BGZ = True
@@ -217,7 +217,7 @@ class BaseWriter(object):
 		'''
 		Closes the file
 		'''
-		if self.f is not sys.stdout:
+		if self.f is not sys.stdout and not isinstance(self.f, StringIO):
 			self.f.close()
 		
 	def __enter__(self): 

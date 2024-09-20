@@ -81,7 +81,7 @@ class BigWigIReader(BaseIReader):
 		'''
 		Return a dict of values. The key of dict is 1-based coordinate. Missing data is not put in the dictionary
 		'''
-		r = r.genomic_pos
+		r = GenomicPos(r)
 		if r.name not in self.bw.chroms():
 			return {}
 		zstart = r.zstart
