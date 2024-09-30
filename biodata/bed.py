@@ -168,7 +168,7 @@ class BEDXReader(BaseReader):
 	By default, input file is in bed3+ format. However, one could also apply this on bed6+, bed9+, etc.
 	'''
 	__slots__ = "fieldnames", "fieldfuncs", "BEDX"
-	def __init__(self, arg, fieldnames, fieldfuncs=None, x=3, classname="BEDX"):
+	def __init__(self, arg, fieldnames=None, fieldfuncs=None, x=3, classname="BEDX"):
 		'''
 		fieldnames: List of names of the additional fields. 
 		fieldfuncs: It can either be a list or a dict. 
@@ -184,6 +184,8 @@ class BEDXReader(BaseReader):
 				setattr(self, slot, arg)
 		if x < 3 or x > 12:
 			raise Exception("Incorrect X")
+		if fieldnames is None:
+			fieldnames = [f"f{x + i}" for i in range(len(self._line.split("\t")) - x)]
 		self.fieldnames = _bed_additional_fields[:x - 3] + fieldnames
 		addition_field_funcs = {_bed_additional_fields[i]:_bed_additional_field_funcs[i] for i in range(x - 3)}
 		if fieldfuncs is None:
@@ -213,6 +215,20 @@ class BEDXReader(BaseReader):
 			else:
 				args = [fieldfunc(obj) for obj, fieldfunc in zip(words_array[3:], self.fieldfuncs)] 
 			return self.BEDX(chrom, chromStart, chromEnd, *args)
+class BEDXWriter(BaseWriter):
+	def __init__(self, arg, fieldfuncs={}):
+		super(BEDXWriter, self).__init__(arg)
+		self.fieldfuncs = fieldfuncs
+	def write(self, bed):
+		'''
+		Output the BEDX
+		'''
+		super(BEDXWriter, self).write(
+			("\t".join(["{}"]*(3+len(bed.__slots__))) + "\n").format(
+				bed.chrom, bed.chromStart, bed.chromEnd,
+				*[(self.fieldfuncs[i] if i in self.fieldfuncs else str)(bed.__getattribute__(i)) for i in bed.__slots__]
+			)
+		)
 
 
 class BEDGraph(BED3):
@@ -486,3 +502,41 @@ class BigBedIReader(BaseIReader):
 	def close(self):
 		self.bigbed.close()
 
+class ENCODENarrowPeak(BED3, StrandedGenomicAnnotation):
+	def __init__(self, chrom, chromStart, chromEnd, name, score, strand, signalValue, pValue, qValue, peak):
+		self.chrom = chrom
+		self.chromStart = chromStart
+		self.chromEnd = chromEnd
+		self.name = name
+		self.score = score
+		self.strand = strand
+		self.signalValue = signalValue
+		self.pValue = pValue
+		self.qValue = qValue
+		self.peak = peak
+		
+	@property
+	def stranded_genomic_pos(self):
+		return StrandedGenomicPos(self.chrom, self.chromStart + 1, self.chromEnd, self.strand)
+
+class ENCODENarrowPeakReader(BED3Reader):
+	def _is_empty_field(self, s):
+		return s is None or s == "" or s == "."	
+	def _read(self):
+		line = self._line
+		if line is None:
+			return None
+		self._proceed_next_line() 
+		words_array = line.split('\t')
+		chrom = words_array[0]
+		chromStart = int(words_array[1]) 
+		chromEnd = int(words_array[2])
+		name = words_array[3]
+		score = float(words_array[4])
+		strand = words_array[5]
+		signalValue = float(words_array[6])
+		pValue = float(words_array[7])
+		qValue = float(words_array[8])
+		peak = int(words_array[9])
+		return ENCODENarrowPeak(chrom, chromStart, chromEnd, name, score, strand, signalValue, pValue, qValue, peak)
+	

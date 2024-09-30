@@ -1,6 +1,8 @@
 # biodata - A standard biological data processing package
 
-The biodata package provides a standard API to access all different kinds of biological data using similar syntax. For each data type, data is processed by the corresponding reader (XX-Reader) and writer (XX-Writer) as a stream of entries. For example, `FASTAReader` is used to process FASTA file. A call to the method `read()` from `FASTAReader` yields a `FASTA` object. For indexed file, random access is supported through the XX-IReader. For example, an indexed FASTA file can be access by  `FASTAIReader`. 
+The biodata package provides a standard API to access different kinds of biological data using similar syntax. For each data type, data could be accessed in either stream- or index-based method. To obtain a stream of entries, data is processed by the reader (XX-Reader) and writer (XX-Writer). For example, `FASTAReader` is used to process a FASTA file. A call to the method `read()` from `FASTAReader` yields a `FASTA` object. To obtain entries from an indexed file, random access is supported through the XX-IReader. For example, an indexed FASTA file (with the associated .fai file) can be accessed by  `FASTAIReader` to yield a `FASTA` object. 
+
+
 
 ## Installation 
 
@@ -43,7 +45,9 @@ ACGT
 CCCGGGAAA
 ```
 
-### Read the first entry
+### Reading data
+
+#### Read the first entry
 
 ```python
 from biodata.fasta import FASTAReader
@@ -52,7 +56,7 @@ with FASTAReader(filename) as fr:
 	print(f.name, f.seq) # seq1 ACGT
 ```
 
-### Read entry by entry
+#### Read entry by entry
 
 ```python
 from biodata.fasta import FASTAReader
@@ -67,7 +71,7 @@ with BEDReader(bedfile) as br:
 		print(b.name, str(b.genomic_pos))
 ```
 
-### Read all entries at once
+#### Read all entries at once
 
 ```python
 from biodata.fasta import FASTAReader
@@ -83,7 +87,7 @@ from genomictools import GenomicCollection
 beds = BEDReader.read_all(GenomicCollection, filename)
 ```
 
-### Peek an entry
+#### Peek an entry
 
 ```python
 from biodata.fasta import FASTAReader
@@ -96,16 +100,17 @@ with FASTAReader(filename) as fr:
 	print(f.name, f.seq) # seq2 CCCGGGAAA
 ```
 
-### Read an entry from StringIO
+#### Read an entry from StringIO
 
 ```python
-# TextIOBase can be used as input
+# TextIOBase can be used as input instead of a file
 import io
 from biodata.fasta import FASTAReader
 FASTAReader.read_all(list, io.StringIO(">seq1\nACGT\n>seq2\nCCCGGGAAA\n"))
 ```
 
-### Read an indexed file
+#### Read an indexed file
+
 
 ```python
 from biodata.fasta import FASTAIReader
@@ -122,7 +127,9 @@ print(f.name, f.seq) # seq2:1-4:- CGGG
 fir.close()
 ```
 
-### Write entry by entry
+### Writing
+
+#### Write entry by entry
 
 ```python
 from biodata.fasta import FASTA, FASTAWriter
@@ -131,7 +138,7 @@ with FASTAWriter(output_file) as fw:
 	fw.write(FASTA("seq2", "CCCGGGAAA"))
 ```
 
-### Write all entries at once
+#### Write all entries at once
 
 ```python
 from biodata.fasta import FASTA, FASTAWriter
@@ -145,22 +152,21 @@ FASTAWriter.write_all(fasta_entries, output_file)
 
 1. Delimited - tsv, csv (`biodata.delimited`)
 2. FASTA, FASTQ (`biodata.fasta`)
-3. BED3, BED, BEDX, BEDGraph, BEDPE (`biodata.bed`)
+3. BED3, BED, BEDX, BEDGraph, BEDPE, BigBed, ENCODENarrowPeak (`biodata.bed`)
 4. GFF3, GTF (GFF2) (`biodata.gff`)
-5. bwa FastMap (`biodata.bwa.fastmap`)
-6. MEME Motif Format (`biodata.meme`)
+5. BigWig (`biodata.bigwig`, require `pyBigWig` package)
+6. bwa FastMap (`biodata.bwa.fastmap`)
+7. MEME Motif Format (`biodata.meme`)
+
+
 
 Future supported formats. 
 
 1. VCF (`biodata.vcf`)
-3. BigBed (`biodata.bed`)
-4. BigWig (`biodata.bigwig`)
-
-
 
 ## Extension of BaseReader
 
-Users can extend the `BaseReader` and `BaseWriter` class easily.
+Users can extend the `BaseReader` and `BaseWriter` class easily to accommodate other formats not currently supported by `biodata`.
 
 ```python
 class ExampleNode(object):
