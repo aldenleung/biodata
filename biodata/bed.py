@@ -168,7 +168,7 @@ class BEDXReader(BaseReader):
 	By default, input file is in bed3+ format. However, one could also apply this on bed6+, bed9+, etc.
 	'''
 	__slots__ = "fieldnames", "fieldfuncs", "BEDX"
-	def __init__(self, arg, fieldnames=None, fieldfuncs=None, x=3, classname="BEDX"):
+	def __init__(self, arg, fieldnames=None, fieldfuncs=None, x=3, classname="BEDX", strandfield=None):
 		'''
 		fieldnames: List of names of the additional fields. 
 		fieldfuncs: It can either be a list or a dict. 
@@ -194,7 +194,13 @@ class BEDXReader(BaseReader):
 			self.fieldfuncs = fieldfuncs
 		else:
 			self.fieldfuncs = _bed_additional_field_funcs[:x - 3] + fieldfuncs
-		self.BEDX = type(classname, (BED3,), {"__slots__":self.fieldnames, "__init__":_init})
+		if strandfield is None:
+			self.BEDX = type(classname, (BED3,), {"__slots__":self.fieldnames, "__init__":_init})
+		else:
+			@property
+			def _stranded_genomic_pos(self, strandfield=strandfield):
+				return StrandedGenomicPos(self.chrom, self.chromStart + 1, self.chromEnd, getattr(self, strandfield))
+			self.BEDX = type(classname, (BED3, StrandedGenomicAnnotation), {"__slots__":self.fieldnames, "__init__":_init, "stranded_genomic_pos":_stranded_genomic_pos})
 		
 	def _read(self):
 		line = self._line
