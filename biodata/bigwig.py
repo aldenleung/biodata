@@ -29,7 +29,7 @@ class BigWigIReader(BaseIReader):
 		if missing_data_mode == "zero":
 			self.missing_data_value = 0
 		elif missing_data_mode == "nan":
-			self.missing_data_mode = float("nan")
+			self.missing_data_value = float("nan")
 		
 	def value(self, r, method="sum"):
 		'''

@@ -280,17 +280,27 @@ class BEDGraphWriter(BaseWriter):
 	
 	
 class BEDGraphIReader(TabixIReader):
-	def __init__(self, arg, tbi=None, dataValueType=float):
+	def __init__(self, arg, tbi=None, dataValueType=float, missing_data_mode="zero"):
 		super(BEDGraphIReader, self).__init__(arg, tbi)
 		if isinstance(dataValueType, str): # Not very safe way to convert str into func
 			dataValueType = eval(dataValueType, {})
 		self.dataValueType = dataValueType
+		if missing_data_mode == "zero":
+			self.missing_data_value = 0
+		elif missing_data_mode == "nan":
+			self.missing_data_value = float("nan")
+		
 	def _parse_raw_entry(self, entry):
 		return BEDGraph(entry[0], int(entry[1]), int(entry[2]), self.dataValueType(entry[3]))	
 	def values_dict(self, r):
+		r = GenomicPos(r)
 		zstart = r.zstart
 		ostop = r.ostop
-		return {p+1 : v for name, i_zstart, i_ostop, v in self.entries_iterator(r) for p in range(max(i_zstart, zstart), min(i_ostop, ostop))}		
+		return {p+1 : bg.dataValue for bg in self.entries_iterator(r) for p in range(max(bg.genomic_pos.zstart, zstart), min(bg.genomic_pos.ostop, ostop))}		
+	def values(self, r):
+		r = GenomicPos(r)
+		d = self.values_dict(r)
+		return [d[i+1] if i+1 in d else self.missing_data_value for i in range(r.zstart, r.ostop)]
 
 class BEDIReader(TabixIReader):
 	def _is_empty_field(self, s):

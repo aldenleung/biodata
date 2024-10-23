@@ -142,7 +142,7 @@ with FASTAWriter(output_file) as fw:
 
 ```python
 from biodata.fasta import FASTA, FASTAWriter
-fasta_entries = [FASTA("seq1", "ACGT"), fw.write(FASTA("seq2", "CCCGGGAAA"))]
+fasta_entries = [FASTA("seq1", "ACGT"), FASTA("seq2", "CCCGGGAAA")]
 FASTAWriter.write_all(fasta_entries, output_file)
 ```
 
