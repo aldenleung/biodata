@@ -31,7 +31,7 @@ class TabixIReader(BaseIReader):
 	def entries(self, r):
 		return list(self.entries_iterator(r))
 	def __getitem__(self, key):
-		return self.entries[key]
+		return self.entries(key)
 	
 	def close(self):
 		pass

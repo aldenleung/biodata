@@ -7,7 +7,7 @@ requirements = ["genomictools>=0.0.8"]
 
 setup(
 	name="biodata",
-	version="0.1.5",
+	version="0.1.6",
 	author="Alden Leung",
 	author_email="alden.leung@gmail.com",
 	description="A python package for common biological data I/O",

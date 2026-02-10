@@ -513,7 +513,7 @@ class BigBedIReader(BaseIReader):
 		return list(self.entries_iterator(r))
 		
 	def __getitem__(self, key):
-		return self.entries[key]
+		return self.entries(key)
 	
 	def close(self):
 		self.bigbed.close()
